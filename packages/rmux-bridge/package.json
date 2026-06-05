@@ -1,0 +1,11 @@
+{
+  "name": "@terax/rmux-bridge",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "bun run src/server.ts",
+    "serve": "bash scripts/serve.sh",
+    "e2e": "bun run scripts/e2e-check.ts"
+  }
+}
