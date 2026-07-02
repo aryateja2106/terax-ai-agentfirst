@@ -180,6 +180,11 @@
         <button type="button" data-action="split-h">split h</button>
         <button type="button" data-action="split-v">split v</button>
       </div>
+      <div class="group">
+        <button type="button" data-action="toggle-input" id="input-toggle">Type</button>
+        <button type="button" data-send="&#13;">Enter</button>
+        <button type="button" data-send="&#3;">Ctrl-C</button>
+      </div>
       <div class="status" id="status">connecting</div>
     </div>
     <div id="terminal"></div>
@@ -190,9 +195,12 @@
       const session = params.get("session") || "spine-test";
       const statusEl = document.getElementById("status");
       const terminalEl = document.getElementById("terminal");
+      const inputToggle = document.getElementById("input-toggle");
       const textDecoder = new TextDecoder();
+      let inputEnabled = false;
       const term = new window.Terminal({
         cursorBlink: true,
+        disableStdin: true,
         scrollback: 10000,
         allowTransparency: true,
         fontSize: 12,
@@ -225,8 +233,22 @@
       }
 
       function setStatus(text, tone) {
-        statusEl.textContent = `${session} • ${text}`;
+        const mode = inputEnabled ? "type" : "browse";
+        statusEl.textContent = `${session} • ${text} • ${mode}`;
         statusEl.style.color = tone || "var(--muted)";
+      }
+
+      function setInputEnabled(enabled) {
+        inputEnabled = enabled;
+        term.options.disableStdin = !enabled;
+        inputToggle.classList.toggle("active", enabled);
+        inputToggle.textContent = enabled ? "Browse" : "Type";
+        if (enabled) {
+          term.focus();
+        } else {
+          term.blur();
+        }
+        setStatus(ws.readyState === WebSocket.OPEN ? "connected" : "connecting", ws.readyState === WebSocket.OPEN ? "var(--accent)" : "var(--muted)");
       }
 
       function sendJson(payload) {
@@ -298,14 +320,14 @@
           }
           modifiers[key] = !modifiers[key];
           syncModifiers();
-          term.focus();
+          if (inputEnabled) term.focus();
         });
       });
 
       document.querySelectorAll("[data-send]").forEach((button) => {
         button.addEventListener("click", () => {
           sendInput(button.getAttribute("data-send") || "");
-          term.focus();
+          if (inputEnabled) term.focus();
         });
       });
 
@@ -318,19 +340,22 @@
             sendJson({ type: "split", dir: "h" });
           } else if (action === "split-v") {
             sendJson({ type: "split", dir: "v" });
+          } else if (action === "toggle-input") {
+            setInputEnabled(!inputEnabled);
           }
-          term.focus();
+          if (inputEnabled) term.focus();
         });
       });
 
       term.onData((data) => {
+        if (!inputEnabled) return;
         sendInput(applyModifiers(data));
       });
 
       ws.addEventListener("open", () => {
         setStatus("connected", "var(--accent)");
         scheduleFit();
-        term.focus();
+        setInputEnabled(false);
       });
 
       ws.addEventListener("close", (event) => {
@@ -371,6 +396,7 @@
       });
 
       syncModifiers();
+      setInputEnabled(false);
       setStatus("connecting", "var(--muted)");
       scheduleFit(0);
     </script>
